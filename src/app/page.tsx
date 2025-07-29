@@ -9,11 +9,12 @@ export default function Home() {
   const [showSkull, setShowSkull] = useState(false);
   const [zoomed, setZoomed] = useState(false);
   const [showOverlay, setShowOverlay] = useState(false);
+  const [overlayOpacity, setOverlayOpacity] = useState(0);
   const [showMap, setShowMap] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [initialContentOpacity, setInitialContentOpacity] = useState(1);
   const router = useRouter();
 
-  // Prefetch routes for instant navigation
   useEffect(() => {
     const prefetchRoutes = async () => {
       try {
@@ -52,7 +53,41 @@ export default function Home() {
       if (!zoomed) {
         setZoomed(true);
         setShowOverlay(true);
-        setTimeout(() => setShowMap(true), 1500);
+        
+        const fadeOutInterval = setInterval(() => {
+          setInitialContentOpacity(prev => {
+            const newOpacity = prev - 0.02;
+            if (newOpacity <= 0) {
+              clearInterval(fadeOutInterval);
+              return 0;
+            }
+            return newOpacity;
+          });
+        }, 20);
+
+        const overlayInterval = setInterval(() => {
+          setOverlayOpacity(prev => {
+            const newOpacity = Math.min(prev + 0.02, 0.8);
+            if (newOpacity >= 0.8) {
+              clearInterval(overlayInterval);
+              setTimeout(() => {
+                setShowMap(true);
+                const fadeOutOverlay = setInterval(() => {
+                  setOverlayOpacity(prev => {
+                    const newOpac = prev - 0.02;
+                    if (newOpac <= 0) {
+                      clearInterval(fadeOutOverlay);
+                      setShowOverlay(false);
+                      return 0;
+                    }
+                    return newOpac;
+                  });
+                }, 20);
+              }, 800);
+            }
+            return newOpacity;
+          });
+        }, 20);
       }
     };
 
@@ -69,7 +104,6 @@ export default function Home() {
       setIsMobile(window.innerWidth < 768);
     };
     
-    // Initial check and debounced resize handler
     checkMobile();
     let resizeTimeout: NodeJS.Timeout;
     
@@ -102,21 +136,20 @@ export default function Home() {
       ];
 
   const handleNavigation = (path: string) => {
-    // Immediately disable pointer events during transition
-    const buttons = document.querySelectorAll('button[data-navigation]');
+    const buttons = document.querySelectorAll('[data-navigation]');
     buttons.forEach(btn => {
-      btn.style.pointerEvents = 'none';
+      btn.classList.add('pointer-events-none');
     });
 
-    // Use requestAnimationFrame for smoother transition
-    requestAnimationFrame(() => {
-      router.push(path);
-    });
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        router.push(path);
+      });
+    }, 50);
   };
 
   return (
     <div className="relative w-screen h-screen overflow-hidden">
-      {/* Background Video - now properly shared between views */}
       <video
         ref={videoRef}
         src="/video.mp4"
@@ -127,13 +160,11 @@ export default function Home() {
         muted
         playsInline
         preload="auto"
-        controls={false}
       />
-
-      {/* Zoomable Content */}
       <div
-        className={`absolute inset-0 transition-transform duration-[2000ms] ease-in-out origin-[60%_45%] z-10
-        ${zoomed ? "scale-[2.5]" : "scale-100"}`}
+        className={`absolute inset-0 transition-all duration-[2000ms] ease-in-out origin-[60%_45%] z-10
+          ${zoomed ? "scale-[2.5]" : "scale-100"}`}
+        style={{ opacity: initialContentOpacity }}
       >
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <Image
@@ -141,7 +172,7 @@ export default function Home() {
             alt="Glow Effect"
             width={2000}
             height={2000}
-            className="object-contain mix-blend-screen opacity-80 animate-pulse-slow sm:block block w-[800px] sm:w-[2000px]"
+            className="object-contain mix-blend-screen opacity-80 animate-pulse-slow w-[800px] sm:w-[2000px]"
             priority
           />
         </div>
@@ -169,10 +200,13 @@ export default function Home() {
         )}
       </div>
 
-      {/* Overlay */}
       {showOverlay && (
         <div
-          className={`absolute inset-0 bg-black bg-opacity-80 backdrop-blur-sm z-30 animate-fade-in`}
+          className={`absolute inset-0 z-30 transition-opacity duration-1000 ease-out`}
+          style={{
+            backgroundColor: `rgba(0, 0, 0, ${overlayOpacity})`,
+            backdropFilter: `blur(${overlayOpacity * 10}px)`
+          }}
         />
       )}
 
@@ -180,7 +214,6 @@ export default function Home() {
       {showMap && (
         <div className="absolute inset-0 z-40 flex items-center justify-center">
           <div className="relative w-full h-full max-w-[2000px] max-h-full">
-            {/* Map Image - now properly layered above the shared video */}
             <Image
               src="/map.png"
               alt="Map"
@@ -188,31 +221,54 @@ export default function Home() {
               className="object-contain"
               priority
             />
-
-            {/* Navigation Buttons */}
             {pointerData.map((pointer) => (
-              <button
+              <div
                 key={pointer.id}
                 data-navigation="true"
-                className="absolute z-50 flex flex-col items-center transition-transform duration-300 hover:scale-110 active:scale-95"
-                style={{ top: pointer.top, left: pointer.left }}
+                className="absolute z-50 flex flex-col items-center"
+                style={{ 
+                  top: pointer.top, 
+                  left: pointer.left,
+                  padding: '8px',
+                  margin: '-8px',
+                  animation: `float 3s ease-in-out infinite`,
+                  animationDelay: `${pointer.id * 0.2}s`
+                }}
                 onClick={() => handleNavigation(pointer.link)}
-                aria-label={`Navigate to ${pointer.link.slice(1)}`}
               >
-                <Image
-                  src={pointer.image}
-                  alt={`Pointer ${pointer.id}`}
-                  width={isMobile ? 50 : 70}
-                  height={isMobile ? 50 : 100}
-                  className="mb-1 cursor-pointer mix-blend-screen opacity-90 bg-transparent"
-                  priority
-                />
-                <div className={`border-white rotate-[-45deg] ${isMobile ? "w-2 h-2 border-[1px]" : "w-4 h-4 border-l-2 border-b-2"}`} />
-              </button>
+                <div className="relative flex flex-col items-center">
+                  <Image
+                    src={pointer.image}
+                    alt={`Pointer ${pointer.id}`}
+                    width={isMobile ? 50 : 70}
+                    height={isMobile ? 50 : 100}
+                    className="mb-1 cursor-pointer mix-blend-screen opacity-90"
+                    priority
+                  />
+                  <div className={`border-white rotate-[-45deg] ${isMobile ? "w-2 h-2 border-[1px]" : "w-4 h-4 border-l-2 border-b-2"}`} />
+                </div>
+              </div>
             ))}
           </div>
         </div>
       )}
+
+      <style jsx global>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
+        }
+        [data-navigation] {
+          cursor: pointer;
+          transition: transform 0.3s;
+        }
+        [data-navigation]:hover {
+          transform: scale(1.1);
+        }
+        [data-navigation]:active {
+          transform: scale(0.95);
+        }
+      `}</style>
     </div>
   );
 }
