@@ -1,103 +1,218 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [showSkull, setShowSkull] = useState(false);
+  const [zoomed, setZoomed] = useState(false);
+  const [showOverlay, setShowOverlay] = useState(false);
+  const [showMap, setShowMap] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const router = useRouter();
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Prefetch routes for instant navigation
+  useEffect(() => {
+    const prefetchRoutes = async () => {
+      try {
+        await Promise.all([
+          router.prefetch("/home"),
+          router.prefetch("/about"),
+          router.prefetch("/collection"),
+          router.prefetch("/blogs"),
+          router.prefetch("/pricing")
+        ]);
+      } catch (error) {
+        console.error("Prefetching failed:", error);
+      }
+    };
+    prefetchRoutes();
+  }, [router]);
+
+  useEffect(() => {
+    const initializeVideo = async () => {
+      if (videoRef.current) {
+        try {
+          await videoRef.current.play();
+        } catch (error) {
+          console.error("Autoplay failed:", error);
+        }
+      }
+      setShowSkull(true);
+    };
+
+    const timer = setTimeout(initializeVideo, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!zoomed) {
+        setZoomed(true);
+        setShowOverlay(true);
+        setTimeout(() => setShowMap(true), 1500);
+      }
+    };
+
+    window.addEventListener("wheel", handleScroll, { passive: true });
+    window.addEventListener("touchmove", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("wheel", handleScroll);
+      window.removeEventListener("touchmove", handleScroll);
+    };
+  }, [zoomed]);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // Initial check and debounced resize handler
+    checkMobile();
+    let resizeTimeout: NodeJS.Timeout;
+    
+    const handleResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(checkMobile, 100);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      clearTimeout(resizeTimeout);
+    };
+  }, []);
+
+  const pointerData = isMobile
+    ? [
+        { id: 1, top: "37%", left: "23%", image: "/pointer1.png", link: "/home" },
+        { id: 2, top: "45%", left: "50%", image: "/pointer2.png", link: "/about" },
+        { id: 3, top: "56%", left: "14%", image: "/pointer3.png", link: "/collection" },
+        { id: 4, top: "52%", left: "69%", image: "/pointer4.png", link: "/blogs" },
+        { id: 5, top: "60%", left: "55%", image: "/pointer5.png", link: "/pricing" },
+      ]
+    : [
+        { id: 1, top: "17.5%", left: "30.5%", image: "/pointer1.png", link: "/home" },
+        { id: 2, top: "35.5%", left: "39.5%", image: "/pointer2.png", link: "/about" },
+        { id: 3, top: "57%", left: "29.5%", image: "/pointer3.png", link: "/collection" },
+        { id: 4, top: "44.5%", left: "60%", image: "/pointer4.png", link: "/blogs" },
+        { id: 5, top: "72%", left: "44%", image: "/pointer5.png", link: "/pricing" },
+      ];
+
+  const handleNavigation = (path: string) => {
+    // Immediately disable pointer events during transition
+    const buttons = document.querySelectorAll('button[data-navigation]');
+    buttons.forEach(btn => {
+      btn.style.pointerEvents = 'none';
+    });
+
+    // Use requestAnimationFrame for smoother transition
+    requestAnimationFrame(() => {
+      router.push(path);
+    });
+  };
+
+  return (
+    <div className="relative w-screen h-screen overflow-hidden">
+      {/* Background Video - now properly shared between views */}
+      <video
+        ref={videoRef}
+        src="/video.mp4"
+        poster="/poster.jpg"
+        className="absolute top-0 left-0 w-full h-full object-cover z-0"
+        autoPlay
+        loop
+        muted
+        playsInline
+        preload="auto"
+        controls={false}
+      />
+
+      {/* Zoomable Content */}
+      <div
+        className={`absolute inset-0 transition-transform duration-[2000ms] ease-in-out origin-[60%_45%] z-10
+        ${zoomed ? "scale-[2.5]" : "scale-100"}`}
+      >
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <Image
+            src="/first-image.png"
+            alt="Glow Effect"
+            width={2000}
+            height={2000}
+            className="object-contain mix-blend-screen opacity-80 animate-pulse-slow sm:block block w-[800px] sm:w-[2000px]"
+            priority
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+            src="/skull.png"
+            alt="Skull Logo"
+            width={150}
+            height={150}
+            className={`object-contain transition-all duration-[2000ms] ease-out translate-y-[-5%]
+              sm:w-[400px] sm:h-[400px] w-[150px] h-[150px]
+              ${showSkull ? "opacity-100 scale-100" : "opacity-0 scale-90"}`}
+            priority
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        </div>
+
+        {!zoomed && (
+          <div className="absolute bottom-10 w-full flex flex-col items-center animate-fade-up z-10">
+            <p className="text-white text-lg sm:text-xl mb-2">Scroll to discover the map</p>
+            <div className="w-6 h-10 border-2 border-white rounded-full flex items-start justify-center p-1 animate-bounce">
+              <div className="w-1 h-2 bg-white rounded-full" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Overlay */}
+      {showOverlay && (
+        <div
+          className={`absolute inset-0 bg-black bg-opacity-80 backdrop-blur-sm z-30 animate-fade-in`}
+        />
+      )}
+
+      {/* Map View */}
+      {showMap && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center">
+          <div className="relative w-full h-full max-w-[2000px] max-h-full">
+            {/* Map Image - now properly layered above the shared video */}
+            <Image
+              src="/map.png"
+              alt="Map"
+              fill
+              className="object-contain"
+              priority
+            />
+
+            {/* Navigation Buttons */}
+            {pointerData.map((pointer) => (
+              <button
+                key={pointer.id}
+                data-navigation="true"
+                className="absolute z-50 flex flex-col items-center transition-transform duration-300 hover:scale-110 active:scale-95"
+                style={{ top: pointer.top, left: pointer.left }}
+                onClick={() => handleNavigation(pointer.link)}
+                aria-label={`Navigate to ${pointer.link.slice(1)}`}
+              >
+                <Image
+                  src={pointer.image}
+                  alt={`Pointer ${pointer.id}`}
+                  width={isMobile ? 40 : 60}
+                  height={isMobile ? 40 : 80}
+                  className="mb-1 cursor-pointer mix-blend-screen opacity-90 bg-transparent"
+                  priority
+                />
+                <div className={`border-white rotate-[-45deg] ${isMobile ? "w-2 h-2 border-[1px]" : "w-4 h-4 border-l-2 border-b-2"}`} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
