@@ -202,8 +202,8 @@ export default function Home() {
                 <Image
                   src={pointer.image}
                   alt={`Pointer ${pointer.id}`}
-                  width={isMobile ? 40 : 60}
-                  height={isMobile ? 40 : 80}
+                  width={isMobile ? 50 : 70}
+                  height={isMobile ? 50 : 100}
                   className="mb-1 cursor-pointer mix-blend-screen opacity-90 bg-transparent"
                   priority
                 />
